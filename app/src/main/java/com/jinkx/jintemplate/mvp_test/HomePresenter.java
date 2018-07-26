@@ -1,58 +1,54 @@
 package com.jinkx.jintemplate.mvp_test;
 
-import com.jinkx.jintemplate.base.api.HttpDelegate;
+import com.jinkx.jintemplate.base.api.ApiServices;
 import com.jinkx.jintemplate.base.api.HttpServices;
 
-import rx.Subscriber;
-import rx.Subscription;
-import rx.android.schedulers.AndroidSchedulers;
-import rx.functions.Action0;
-import rx.schedulers.Schedulers;
+import io.reactivex.android.schedulers.AndroidSchedulers;
+import io.reactivex.disposables.Disposable;
+import io.reactivex.functions.Consumer;
+import io.reactivex.schedulers.Schedulers;
 
 /**
  * Created by jinkx on 2016/12/16.
  */
 
-public class HomePresenter extends HttpDelegate implements HomeContract.Presenter{
+public class HomePresenter implements HomeContract.Presenter{
     HomeContract.IView iView;
-
+    private Disposable disposable;
     public HomePresenter(HomeContract.IView iView) {
         this.iView = iView;
     }
 
     @Override
     public void getHeadIcom() {
-        Subscription subscription = HttpServices.createApi(HomeApiServices.class).getHeadIcom()
+        disposable = HttpServices.createApi(ApiServices.class).getHeadIcom()
                 .subscribeOn(Schedulers.io())
                 .observeOn(AndroidSchedulers.mainThread())
-                .doOnSubscribe(new Action0() {
+                .doOnNext(new Consumer<HomeHeadBean>() {
                     @Override
-                    public void call() {
+                    public void accept(HomeHeadBean homeHeadBean) throws Exception {
                         iView.showLoading();
                     }
                 })
-                .subscribeOn(AndroidSchedulers.mainThread())
-                .subscribe(new Subscriber<HomeHeadBean>() {
+                .observeOn(AndroidSchedulers.mainThread())
+                .subscribe(new Consumer<HomeHeadBean>() {
                     @Override
-                    public void onCompleted() {
-                        iView.hideLoading();
+                    public void accept(HomeHeadBean homeHeadBean) throws Exception {
+                        iView.successLoad(homeHeadBean);
                     }
 
+                }, new Consumer<Throwable>() {
                     @Override
-                    public void onError(Throwable e) {
+                    public void accept(Throwable throwable) throws Exception {
                         iView.hideLoading();
-                    }
-
-                    @Override
-                    public void onNext(HomeHeadBean bean) {
-                        iView.successLoad(bean);
                     }
                 });
-        addSubscription(subscription);
     }
 
     @Override
     public void unBind() {
-        onUnsubscribe();
+        if(disposable != null){
+            disposable.dispose();
+        }
     }
 }
